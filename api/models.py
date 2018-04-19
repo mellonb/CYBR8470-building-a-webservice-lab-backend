@@ -29,3 +29,10 @@ class ApiKey(models.Model):
 
 class ApiKeyAdmin(admin.ModelAdmin):
     list_display = ('owner','key')
+
+class vuln(models.Model):
+    vendorName = models.CharField(max_length=25)
+    cveID = models.CharField(max_length=15)
+    startDate = models.DateField()
+    endDate = models.DateField()
+    cveScore = models.DecimalField(max_digits=4, decimal_places=2)

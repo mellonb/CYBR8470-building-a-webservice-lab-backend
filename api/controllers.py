@@ -48,6 +48,9 @@ def home(request):
    return render_to_response('ember/index.html',
                {}, RequestContext(request))
 
+def timeline(request, vendor1, vendor2):
+	return render_to_response('ember/timeline.html',{}, RequestContext(request))
+
 def xss_example(request):
   """
   Send requests to xss-example/ to the insecure client app
@@ -61,7 +64,7 @@ class Register(APIView):
     def post(self, request, *args, **kwargs):
         # Login
         username = request.POST.get('username') #you need to apply validators to these
-        print username
+        print (username)
         password = request.POST.get('password') #you need to apply validators to these
         email = request.POST.get('email') #you need to apply validators to these
         gender = request.POST.get('gender') #you need to apply validators to these
@@ -70,7 +73,7 @@ class Register(APIView):
         city = request.POST.get('city') #you need to apply validators to these
         state = request.POST.get('state') #you need to apply validators to these
 
-        print request.POST.get('username')
+        print (request.POST.get('username'))
         if User.objects.filter(username=username).exists():
             return Response({'username': 'Username is taken.', 'status': 'error'})
         elif User.objects.filter(email=email).exists():
