@@ -27,7 +27,7 @@ if ENVIRONMENT == 'PROD':
 else:
     DEBUG = True
 
-ALLOWED_HOSTS = ['137.48.185.230', 'localhost']
+ALLOWED_HOSTS = ['137.48.185.230', 'localhost', 'django']
 
 
 # Application definition
@@ -61,7 +61,7 @@ MIDDLEWARE_CLASSES = [
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, "static/")],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
