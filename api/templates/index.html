@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-    <link href="https://fonts.googleapis.com/css?family=Kirang+Haerang" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
 
 <script type="text/javascript" src="http://mbostock.github.com/d3/d3.v2.js"></script>
 		<style type="text/css">
@@ -25,7 +25,7 @@
 		}
 
 		.miniItem0 {
-			fill: darksalmon;
+			fill: peru;
 			stroke-width: 6;
 		}
 
@@ -36,7 +36,7 @@
 		}
 
 		.miniItem2 {
-			fill: slategray;
+			fill: red;
 			fill-opacity: .7;
 			stroke-width: 6;
 		}
@@ -48,7 +48,7 @@
 		}
 
 body{
-font-family: 'sans-serif';
+font-family: 'Open Sans', sans-serif;
 font-size: 35px;
 }
 #chart_div path {
@@ -74,40 +74,56 @@ stroke:#6699cc; /* choose a color for the border */
 <center>
 <div class="container-fluid">
 
-<h3>Select two vendors to compare</h3>
+<h3>Select two vendors and two dates to compare</h3>
 <h4>
 <form action="{% url 'api:index' %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
-            <select name="layer1">
-                {% for vendor in vendorlist %}
-		            <option value={{ vendor }}>{{ vendor }}</option>
-		        {% endfor %}
-		</select>
+             <input list="vendor1" name="layer1" placeholder="Vendor1 Product">
+                  <datalist id="vendor1">
+                      {% for vendor in vendorlist %}
+		                <option value={{ vendor }}>{{ vendor }}</option>
+                      {% endfor %}
+                  </datalist>
 
-		<select name="layer2">
-                {% for vendor in vendorlist %}
-		            <option value={{ vendor }}>{{ vendor }}</option>
-		        {% endfor %}
-		</select>
+             <input list="vendor2" name="layer2" placeholder="Vendor2 Product">
+                  <datalist id="vendor2">
+                      {% for vendor in vendorlist %}
+		                <option value={{ vendor }}>{{ vendor }}</option>
+                      {% endfor %}
+                  </datalist>
+             <select id="StartDate" name="StartDate">
+                 {% for year in Years %}
+		                <option value={{ year }}>{{ year }}</option>
+                 {% endfor %}
+             </select>
+            <select id="EndDate" name="EndDate">
+                 {% for year in Years %}
+		                <option value={{ year }}>{{ year }}</option>
+                 {% endfor %}
+             </select>
             <input type="submit" value="Submit" class="btn btn-success"  />
             </form>
+
 </h4>
     </div>
+<script type="text/javascript">
+
+</script>
 
 
 <script type="text/javascript">
 		//data
-
-		var lanes = ["Vendor 1","Vendor 2","Combined"],
+        console.log({{ vendors|safe }})
+		var lanes = {{ vendors|safe }},
 			laneLength = lanes.length,
 			items = {{ data|safe }}
-			timeBegin = 0,
-			timeEnd = 1999999999.0;
+			timeBegin = 0;
+			timeEnd = 1999999999;
 		</script>
 		<script type="text/javascript">
-		var m = [20, 15, 15, 120], //top right bottom left
-			w = 960 - m[1] - m[3],
-			h = 500 - m[0] - m[2],
+		var m = [20, 15, 15, 300], //top right bottom left
+			w = 1500 - m[1] - m[3],
+			h = 650 - m[0] - m[2],
 			miniHeight = laneLength * 12 + 50,
 			mainHeight = h - miniHeight - 50;
 
@@ -205,10 +221,16 @@ stroke:#6699cc; /* choose a color for the border */
 		mini.append("g").selectAll(".miniLabels")
 			.data(items)
 			.enter().append("text")
-			.text(function(d) {return d.id;})
+			.text(function(d) {
+        if( d.severityMetric > 30 ){
+          return d.id
+        }
+
+      })
 			.attr("x", function(d) {return x(d.start);})
 			.attr("y", function(d) {return y2(d.lane + .5);})
 			.attr("dy", ".5ex");
+      // .attr("transform", `translate(738px) rotate(90deg)`);
 
 		//brush
 		var brush = d3.svg.brush()

@@ -1,0 +1,57 @@
+{% extends 'index.html' %}
+
+{% block content %}
+
+{% for vendor,value in severities.items%}
+    <div class="col-xs-1"></div>
+        <div class="col-xs-3">
+            <h3>{{vendor}}</h3>
+        <table class="table table-striped table-bordered table-hover">
+                <thead>
+                <tr class="bg-info">
+                    <th>Vulnerability ID</th>
+                    <th>Severity</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for id,score,link in value %}
+                    <tr>
+                        <td><a href="{{ link }}" target="_blank">{{ id }}</a></td>
+                        <td>{{ score }}</td>
+                        </tr>
+                {% endfor %}
+                </tbody>
+    </table>
+            </div>
+
+{% endfor %}
+
+<div class="col-xs-1"></div>
+        <div class="col-xs-3">
+            <h3>Attack Window</h3>
+
+        <table class="table table-striped table-bordered table-hover">
+                <thead>
+                <tr class="bg-info">
+                    <th>Vulnerability ID</th>
+                    <th>Severity</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for details,score in combined_severities %}
+                    <tr>
+                        <td>
+                            {% for id,link in details.items %}
+                                <a href="{{ link }}" target="_blank">{{ id }}</a>
+                            -
+                            {% endfor %}
+                        </td>
+                        <td>{{ score }}</td>
+                        </tr>
+                {% endfor %}
+                </tbody>
+    </table>
+            </div>
+
+
+{% endblock %}

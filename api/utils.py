@@ -1,3 +1,4 @@
+import sys
 import argparse
 import requests
 import re
@@ -22,7 +23,6 @@ class vulnObject:
         self.dateFirstPublished = 0.0 #Date vuln was first published in database
         self.dateLastUpdated = 0.0 #Date vuln we last updated in database
         self.severityMetric = 0.0 #Severith metric associated with the vuln
-        self.documentRevision = 0.0 #Document revision
         self.debug = debug #Flag to set debug mode on or off
 
         vulnObject.numVulns +=1
@@ -66,9 +66,6 @@ class vulnObject:
     def setSeverityMetric(self, severityMetric):
         self.severityMetric = severityMetric
 
-    def setDocumentRevision(self, documentRevision):
-        self.documentRevision = documentRevision
-
     #String function for vuln object
     def __str__(self):
         return('''
@@ -78,8 +75,7 @@ class vulnObject:
             Date Public:            {}
             Date First Published:   {}
             Date Last Updated:      {}
-            Severity Metric:        {}
-            Document Revision:      {}'''.format(self.search_url, self.vulnID, self.cveID, self.datePublic, self.dateFirstPublished, self.dateLastUpdated, self.severityMetric, self.documentRevision))
+            Severity Metric:        {}'''.format(self.search_url, self.vulnID, self.cveID, self.datePublic, self.dateFirstPublished, self.dateLastUpdated, self.severityMetric))
 
 #Class to search the database. It is passed three parameters. A true or false debug flag, the product being searched for, and the max number of results to return
 class Search:
@@ -111,6 +107,7 @@ class Search:
             vul_results = requests.get(search_url) #Get request to pull details of the vulnerability
             parsed_results = BeautifulSoup(vul_results.text, 'html.parser') #Parsing the results with BeautifulSoup
             other_info = parsed_results.find(id="other-info") #Find the other-info section from the parsed results and creating a reference to them. This section holds in information on the vuln we are interested in
+            cvss_metrics = parsed_results.find(id='cvss-score')
 
             #Find all the information from the other-info section and place the information we are interested in into the appropriate place in the vulnObject
             for li in other_info.find_all('li'):
@@ -131,7 +128,13 @@ class Search:
 
                 except AttributeError:
                     if debug:
-                        print('AttributeError:  {}  {}'.format(string1,string2))
+                        print('AttributeError:  string1: {}  String2: {}'.format(string1,string2))
+
+                    continue
+
+                except IndexError:
+                    if debug:
+                        print('IndexError: string1: {} string2: {}'.format(string1, string2))
 
                     continue
 
@@ -176,9 +179,6 @@ class Search:
                     elif (string1 == 'SeverityMetric:'):
                         vuln.setSeverityMetric(string2)
 
-                    elif (string1 == 'DocumentRevision:'):
-                        vuln.setDocumentRevision(string2)
-
                     else:
                         continue
 
@@ -189,86 +189,197 @@ class Search:
                     print(traceback.print_exc())
 
                     if debug:
-                        break
+                        continue
 
                     else:
                         return e
 
-
             searchDict[urlList[num]] = vuln
+
+        for item in searchDict:
+            if debug:
+                print(str(searchDict[item]))
+
+            if (searchDict[item].cveID == 'Unknown'):
+                if debug:
+                    print(searchDict[item].cveID)
+                    print(cvss_metrics)
+
+                if (searchDict[item].severityMetric != 0.0):
+                    temp = searchDict[item].severityMetric
+                    searchDict[item].setSeverityMetric(float(searchDict[item].severityMetric)/10.0)
+
+                    if debug:
+                        print('Divided SM ({}) by 10 = {}\n'.format(temp, searchDict[item].severityMetric))
+
+                else:
+                    try:
+                        base = re.findall('>[0-9].[0-9]<',str(cvss_metrics))
+                        base = re.sub('[<,>]', '', str(base[0]))
+                        searchDict[item].setSeverityMetric(float(base))
+
+                        if debug:
+                            print('\nBase {}'.format(base))
+                    except:
+                        temp = searchDict[item].severityMetric
+                        searchDict[item].setSeverityMetric(float(searchDict[item].severityMetric) / 10.0)
+
+            else:
+                cve = re.findall('CVE-[0-9]*-[0-9]*', searchDict[item].cveID)
+                temp = str(cve)
+                try:
+                    if (len(cve) != 0):
+                        cveResult = requests.get('https://cve.circl.lu/api/cve/' + str(cve[0]))
+                        cve = json.loads(cveResult.text)
+                        searchDict[item].setSeverityMetric(cve['cvss'])
+
+                        if debug:
+                            print('Length: {}'.format(len(cve)))
+                            print('CVE = {}'.format(temp))
+
+                    else:
+                        temp = searchDict[item].severityMetric
+                        searchDict[item].setSeverityMetric(float(searchDict[item].severityMetric)/10.0)
+                except:
+                    temp = searchDict[item].severityMetric
+                    searchDict[item].setSeverityMetric(float(searchDict[item].severityMetric) / 10.0)
+
+                    if debug:
+                        print('Divided SM ({}) by 10 = {}\n'.format(temp, searchDict[item].severityMetric))
+                        print(cve)
 
         return searchDict
 
 
     def run(self, debug, vendor, product, searchMax):
         results = self.searchVuln(debug, vendor, product, searchMax)
-        nvdResults = requests.get('https://cve.circl.lu/api/search/' + vendor + '/' + product)
-        parsed_json = json.loads(nvdResults.text)
+        ven = []
 
-        for key in parsed_json:
-            cve = key['id']
-            #print('CVE = {}'.format(cve))
-            #print('\n')
-            numMatches = 0
+        for ch in vendor:
+            if (ch == ' '):
+                ch = '%20'
 
-            for item in results:
-                cveID = results[item].cveID
-                #print('cveID = {}'.format(cveID))
+            ven.append(ch)
 
-                if re.findall(cve, cveID):
-                    numMatches += 1
-                    #print('Matched {} {} times'.format(cve, numMatches))
+        vendor = ''
 
-            if (numMatches == 0):
-                year = key['Published'][0:4]
-                month = key['Published'][5:7]
-                days = key['Published'][8:10]
-                #print(key['Published'])
-                #print('Year = {} Month = {} Days = {}'.format(year, month, days))
+        for ch in ven:
+            vendor = vendor + ch
 
-                vuln = vulnObject(cve, debug)
-                vuln.search_url = 'https://nvd.nist.gov/vuln/detail/' + cve
-                vuln.cveID = cve
+            vendor = vendor.lower()
+            product = product.lower()
 
-                vuln.setDatePublic(days, month, year)
-                year = key['Modified'][0:4]
-                month = key['Modified'][5:7]
-                days = key['Modified'][8:10]
+        if debug:
+            print('Vendor: {}   Product: {}'.format(vendor, product))
 
-                vuln.setDateLastUpdated(days, month,year)
-                #print('Year = {} Month = {} Days = {}'.format(year, month, days))
-                vuln.severityMetric = key['cvss']
-                results[cve] = vuln
+        if (product == ''):
+            nvdResults = requests.get('https://cve.circl.lu/api/search/' + vendor)
+
+            if debug:
+                print ('Search URL: {}'.format('https://cve.circl.lu/api/search/' + vendor))
+
+            parsed_json = json.loads(nvdResults.text)
+
+            for item in parsed_json:
+
+                for key in parsed_json[item]:
+
+                    try:
+                        cve = key['id']
+
+                    except TypeError as e:
+                        print('Error: key[{}]'.format(id))
+                        print(str(e))
+                        continue
+
+                    numMatches = 0
+
+                    for item in results:
+                        cveID = results[item].cveID
+
+                        if re.findall(cve, cveID):
+                            numMatches += 1
+
+                    if (numMatches == 0):
+                        try:
+                            year = key['Published'][0:4]
+                            month = key['Published'][5:7]
+                            days = key['Published'][8:10]
+
+                            vuln = vulnObject(cve, debug)
+                            vuln.search_url = 'https://nvd.nist.gov/vuln/detail/' + cve
+                            vuln.cveID = cve
+
+                            vuln.setDatePublic(days, month, year)
+                            year = key['Modified'][0:4]
+                            month = key['Modified'][5:7]
+                            days = key['Modified'][8:10]
+
+                            vuln.setDateLastUpdated(days, month,year)
+                            vuln.severityMetric = key['cvss']
+                            results[cve] = vuln
+
+                        except KeyError as e:
+                            if debug:
+                                print('KeyError: result: {}'.format(str(results[item])))
+
+                            break
 
 
-        #print("Total number of vulns scraped: {}\n".format(len(results)))
-        temp_Results = eval(json.dumps(results, default=lambda o: o.__dict__))
-        finalresults = []
-        for item in temp_Results:
-            temp = {key:temp_Results[item][key] for key in temp_Results[item] if key in ["dateFirstPublished", "dateLastUpdated", "vulnID"]}
-            finalresults.append(temp)
-        return finalresults
+        else:
+            nvdResults = requests.get('https://cve.circl.lu/api/search/' + vendor + '/' + product)
 
-def compute(results):
-    count = 0
-    final = []
-    ids = []
-    for vendor in results:
-        for row in vendor:
-            if row["vulnID"] in ids:
-                row["lane"] = 2
-            else:
-                ids.append(row["vulnID"])
-                row["lane"] = count
-            row["start"] = row["dateFirstPublished"]
-            row["end"] = row["dateLastUpdated"]
-            row["id"] = row["vulnID"]
-            del row["dateFirstPublished"]
-            del row["dateLastUpdated"]
-            del row["vulnID"]
-            final.append(row)
-        count += 1
-    return final
+            if debug:
+                print ('Search URL: {}'.format('https://cve.circl.lu/api/search/' + vendor + '/' + product))
+
+            parsed_json = json.loads(nvdResults.text)
+
+            for key in parsed_json:
+
+                try:
+                    cve = key['id']
+
+                except TypeError as e:
+                    print('Error: key[{}]'.format(id))
+                    print(str(e))
+                    continue
+
+                numMatches = 0
+
+                for item in results:
+                    cveID = results[item].cveID
+
+                    if re.findall(cve, cveID):
+                        numMatches += 1
+
+                if (numMatches == 0):
+                    try:
+                        year = key['Published'][0:4]
+                        month = key['Published'][5:7]
+                        days = key['Published'][8:10]
+
+                        vuln = vulnObject(cve, debug)
+                        vuln.search_url = 'https://nvd.nist.gov/vuln/detail/' + cve
+                        vuln.cveID = cve
+
+                        vuln.setDatePublic(days, month, year)
+                        year = key['Modified'][0:4]
+                        month = key['Modified'][5:7]
+                        days = key['Modified'][8:10]
+
+                        vuln.setDateLastUpdated(days, month,year)
+                        vuln.severityMetric = key['cvss']
+                        results[cve] = vuln
+
+                    except KeyError as e:
+                        if debug:
+                            print('KeyError: result: {}'.format(str(results[item])))
+
+                        break
+
+
+        return results
+
 
 if __name__ == "__main__":
     #Parsing the command line for arguments
@@ -278,7 +389,5 @@ if __name__ == "__main__":
     parser.add_argument('product', type=str)
     parser.add_argument('searchMax', type=str)
     args = parser.parse_args()
-    #print(args)
 
     Search().run(args.debug, args.vendor, args.product, args.searchMax)
-
