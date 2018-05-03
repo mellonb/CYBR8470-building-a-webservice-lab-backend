@@ -31,3 +31,6 @@ def index(request):
         return render(request, 'severity.html', {"vendorlist": vendorlist, "data":data, "vendors": vendors, "severities":final_severities, "Years":range(2000,curr_year), "combined_severities":combined_severities})
     else:
         return render(request, 'index.html',{"vendorlist":vendorlist, "vendors": vendors , "Years":range(2000,curr_year)})
+
+def helpPage(request):
+    return render(request, 'help.html')
